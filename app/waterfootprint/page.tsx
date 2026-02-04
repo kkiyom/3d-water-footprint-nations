@@ -100,9 +100,9 @@ const countryWaterFootprints: CountryWaterFootprint[] = [
 ];
 
 const ARC_BASE_COLOR = "#AEE6FF";     // 通常
-const ARC_EXPORT_HOVER = "#FFE54A";   // 輸出 (黄色)
-const ARC_IMPORT_HOVER = "#8B5CFF";   // 輸入（紫）
-const ARC_LINK_HOVER = "#FFE54A";     // arc直接hover（黄色）
+const ARC_EXPORT_HOVER = "#eaf75bc3";   // 輸出 (黄色)
+const ARC_IMPORT_HOVER = "#8b5efe";   // 輸入（紫）
+const ARC_LINK_HOVER = "#94f75b86";     // arc直接hover（黄色）
 
 const minWF = Math.min(...countryWaterFootprints.map((c) => c.wfTotal));
 const maxWF = Math.max(...countryWaterFootprints.map((c) => c.wfTotal));
@@ -587,7 +587,7 @@ function FlowLinks({
 function Ocean() {
   const ref = useRef<any>(null);
   const gl = useThree((state) => state.gl);
-  const waterNormals = useLoader(THREE.TextureLoader, "/images/waternormals.jpeg");
+  const waterNormals = useLoader(THREE.TextureLoader, "/waternormals.jpeg");
   waterNormals.wrapS = waterNormals.wrapT = THREE.RepeatWrapping;
 
   const geom = useMemo(() => new THREE.PlaneGeometry(10000, 10000), []);

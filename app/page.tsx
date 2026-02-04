@@ -10,9 +10,11 @@ import { extend } from "@react-three/fiber";
 
 export default function Page() {
   return (
-    <div>
+    <><div>
       <a href="/waterfootprint">ウォータフットプリント</a>
-    </div>
+    </div><div>
+        <a href="/soccerball">Soccer Ball</a>
+      </div></>
   );
 }
 
