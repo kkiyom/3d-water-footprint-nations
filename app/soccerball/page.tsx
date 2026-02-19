@@ -151,7 +151,7 @@ function SoccerballScene({
   const groupRef = useRef<THREE.Group>(null);
   const frags1 = useRef<THREE.Object3D[]>([]);
   const frags2 = useRef<THREE.Object3D[]>([]);
-  const { scene, animations, nodes, cameras } = useGLTF("/soccerball7.glb");
+  const { scene, animations, nodes, cameras } = useGLTF("/soccerball10.glb");
   const {  mixer } = useAnimations(animations, groupRef);
   const { camera, size } = useThree();
   const overlayShownRef = useRef(false);
@@ -401,4 +401,4 @@ useEffect(() => {
   );
 }
 
-useGLTF.preload("/soccerball7.glb");
+useGLTF.preload("/soccerball10.glb");
