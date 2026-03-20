@@ -8,6 +8,8 @@ import { useRouter } from "next/navigation";
 import { OrbitControls, PerspectiveCamera } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 
+const BASE_URL = process.env.NEXT_PUBLIC_ASSET_URL ?? '';
+
 function FlowingText({
   text,
   speed = 6,
@@ -41,7 +43,7 @@ function FlowingText({
   return (
     <Text
       ref={textRef}
-      font="/Silkscreen-Regular.ttf"
+      font={`${BASE_URL}/Silkscreen-Regular.ttf`}
       fontSize={12}          // ← 小さく
       letterSpacing={-0.08}
       position={[0, 0, 0]}
@@ -54,34 +56,6 @@ function FlowingText({
     </Text>
   );
 }
-// function FlowingText({ text }: { text: string }) {
-//   const textRef = useRef<any>(null);
-//   const SPEED = 6;   // 速さ
-//   const LOOP = 800;   // ループ幅（固定）
-
-//   useFrame((state) => {
-//     if (!textRef.current) return;
-//     const t = state.clock.elapsedTime;
-//     const x = (LOOP / 2) - ((t * SPEED) % LOOP); // 右→左
-//     textRef.current.position.x = x;
-//   });
-
-//   return (
-//     <Text
-//       ref={textRef}
-//       font="/Silkscreen-Regular.ttf"
-//       fontSize={12}
-//       letterSpacing={-0.099}
-//       position={[0, 0, 0]}
-//       color="black"
-//       anchorX="left"
-//       anchorY="middle"
-//       rotation-y={Math.PI}
-//     >
-//       {text}
-//     </Text>
-//   );
-// }
 
 function CameraRig() {
   // “固定だけどマウスで少し動く” カメラ
@@ -96,28 +70,64 @@ function CameraRig() {
 
   return null;
 }
-function ScreenImageFlicker({ url }: { url: string }) {
+function ScreenImageFlicker({ url, size = 40 }: { url: string; size?: number }) {
   const texture = useTexture(url);
   const materialRef = useRef<any>(null);
+  const glitchTimer = useRef(0);      // 次のグリッチまでの時間
+  const glitchActive = useRef(false); // グリッチ中かどうか
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     if (!materialRef.current) return;
-
     const t = state.clock.elapsedTime;
 
-    // チラチラ
-    const flicker = 0.85 + Math.random() * 0.2;
-    materialRef.current.opacity = flicker;
+    // ── グリッチタイマー管理 ──
+    glitchTimer.current -= delta;
+    if (glitchTimer.current <= 0) {
+      glitchActive.current = !glitchActive.current;
+      glitchTimer.current = glitchActive.current
+        ? 0.05 + Math.random() * 0.15   // グリッチ継続時間（短い）
+        : 1.5 + Math.random() * 4.0;    // 次のグリッチまで（長い）
+    }
 
-    // 少しだけ明るさ変化
-    materialRef.current.color.setScalar(0.9 + Math.random() * 0.1);
+    // ── 通常時：薄く暗い ──
+    const base = 0.2 + Math.sin(t * 3.5) * 0.06;
+    const noise = (Math.random() - 0.5) * 0.04;
+
+    if (glitchActive.current) {
+      // ── グリッチ中 ──
+
+      // 横ズレ（スライス）
+      texture.offset.x = (Math.random() - 0.5) * 0.08;
+
+      // 縦ロール
+      texture.offset.y += (Math.random() - 0.5) * 0.03;
+
+      // 一瞬ブラックアウト
+      const blackout = Math.random() > 0.85 ? 0 : 1;
+
+      // 勢いよく光る
+      const burst = 0.7 + Math.random() * 0.3;
+
+      materialRef.current.opacity = blackout * burst;
+      materialRef.current.color.setScalar(0.9 + Math.random() * 0.4); // 白飛び気味に
+
+    } else {
+      // ── 通常時：ゆっくり戻す ──
+      texture.offset.x *= 0.85; // ズレをじわっと戻す
+      texture.offset.y *= 0.98;
+
+      const spike = Math.random() > 0.995 ? Math.random() * 0.8 - 0.1 : 0;
+      // materialRef.current.opacity = Math.max(0.1, Math.min(1.0, base + spike + noise));
+      // materialRef.current.color.setScalar(0.4 + Math.sin(t * 2.1) * 0.05 + noise);
+    }
+
+    texture.needsUpdate = true;
   });
 
   return (
     <>
-      {/* 画像 */}
       <mesh position={[0, 0, -5]}>
-        <planeGeometry args={[200, 200]} />
+        <planeGeometry args={[size, size] as [number, number]} />
         <meshBasicMaterial
           ref={materialRef}
           map={texture}
@@ -125,15 +135,9 @@ function ScreenImageFlicker({ url }: { url: string }) {
           toneMapped={false}
         />
       </mesh>
-
-      {/* スキャンライン */}
       <mesh position={[0, 0, -4.9]}>
-        <planeGeometry args={[200, 200]} />
-        <meshBasicMaterial
-          transparent
-          opacity={0.08}
-          color="black"
-        />
+        <planeGeometry args={[size, size] as [number, number]} />
+        <meshBasicMaterial transparent opacity={0.08} color="black" />
       </mesh>
     </>
   );
@@ -141,7 +145,7 @@ function ScreenImageFlicker({ url }: { url: string }) {
 
 function Model() {
   const router = useRouter();
-  const { scene, nodes } = useGLTF("/ComputersRevenge2.glb") as any;
+  const { scene, nodes } = useGLTF(`${BASE_URL}/ComputersRevenge2.glb`) as any;
 
   // scene を安全に触るため clone（material差し替えなどの副作用を避ける）
   const cloned = useMemo(() => scene.clone(true), [scene]);
@@ -179,8 +183,8 @@ function Model() {
   return (
     <>
       <primitive object={cloned} onPointerDown={onPointerDown} />
-      {["screen1", "screen4", "screen5", "screen6", "screen8", "tv1_2_1", "tv2_2_1", "tv3_2_1"].map((n) => (
-        <ScreenOverlay key={n} scene={cloned} targetName={n} />
+      {["screen1", "screen2", "screen3", "screen4", "screen5", "screen6","screen7", "screen8", "tv1_2_1", "tv2_2_1", "tv3_2_1"].map((n) => (
+        <ScreenOverlay key={n} scene={cloned} targetName={n}/>
       ))}
     </>
   );
@@ -203,10 +207,15 @@ function ScreenOverlay({ scene, targetName }: { scene: THREE.Object3D, targetNam
   const [info, setInfo] = useState<ScreenInfo | null>(null);
   const overlayRef = useRef<THREE.Mesh>(null);
   const screenImages: Record<string, string> = {
-    screen2: "/Ball.png",
-    screen4: "/Ball.png",
-    screen7: "/Ball.png",
+    screen2: `${BASE_URL}/Waterballsphoto.png`,
+    screen3: `${BASE_URL}/Ball.png`,
+    screen7: "",
   };
+  const screenSizes: Record<string, number> = {
+  screen2: 20,
+  screen3: 40,
+  screen7: 40,
+};
   const isTV = ["tv1_2_1", "tv2_2_1", "tv3_2_1"].includes(targetName);
   const tvMap = useTVTexture(targetName, isTV);
   const screenParamsMap: Record<
@@ -220,7 +229,25 @@ function ScreenOverlay({ scene, targetName }: { scene: THREE.Object3D, targetNam
     screen8: { direction: -1, speed: 8, y: -20 },
   };
   const screenParams = screenParamsMap[targetName] ?? { direction: -1, speed: 6, y: 0 };
+  // ScreenOverlay 内に追加
+  const bgRef = useRef<any>(null);
 
+  useFrame((state) => {
+  if (!bgRef.current) return;
+
+  // 画像がある画面だけチカチカ、文字画面は固定で明るい
+  if (!screenImages[targetName]) {
+    bgRef.current.color.setRGB(0.06 * 2, 0.55 * 2, 0.3 * 2);
+    return;
+  }
+
+  const t = state.clock.elapsedTime;
+  const base = 0.35 + Math.sin(t * 3.5) * 0.02;
+  const spike = Math.random() > 0.995 ? Math.random() * 0.8 - 0.1 : 0;
+  const noise = (Math.random() - 0.5) * 0.08;
+  const intensity = Math.max(0.1, Math.min(1.0, base + spike + noise));
+  bgRef.current.color.setRGB(0.06 * 2 * intensity, 0.55 * 2 * intensity, 0.3 * 2 * intensity);
+});
   useEffect(() => {
     scene.traverse((obj) => {
       if ((obj as any).isMesh && obj.name.toLowerCase().includes("tv")) {
@@ -333,6 +360,7 @@ function ScreenOverlay({ scene, targetName }: { scene: THREE.Object3D, targetNam
             <mesh position={[0, 0, -5]}>
               <planeGeometry args={[200, 200]} />
               <meshBasicMaterial
+                ref={bgRef}
                 toneMapped={false}
                 color={[0.06 * 2, 0.55 * 2, 0.3 * 2]}
               />
@@ -340,7 +368,10 @@ function ScreenOverlay({ scene, targetName }: { scene: THREE.Object3D, targetNam
             <ambientLight intensity={0.5} />
             <directionalLight position={[10, 10, 5]} />
             {screenImages[targetName] ? (
-              <ScreenImageFlicker url={screenImages[targetName]} />
+              <ScreenImageFlicker
+                url={screenImages[targetName]}
+                size={screenSizes[targetName] ?? 40}  // 未定義なら40をデフォルトに
+              />
             ) : (
               <FlowingText
                 text="Whereas recognition of the inherent dignity"
@@ -403,7 +434,7 @@ function VHSNoiseTV({ seed = 0 }: { seed?: number }) {
     <>
       {/* 背景（暗め） */}
       <mesh position={[0, 0, -6]}>
-        <planeGeometry args={[200, 200]} />
+        <planeGeometry args={[200, 200]}  />
         <meshBasicMaterial toneMapped={false} color={[0.02, 0.02, 0.02]} />
       </mesh>
 
@@ -453,7 +484,7 @@ function Timecode_TV({ seed = 0 }: { seed?: number }) {
     <Text
       ref={ref}
       frustumCulled={false}
-      font="/Silkscreen-Regular.ttf"
+      font={`${BASE_URL}/Silkscreen-Regular.ttf`}
       fontSize={10}
       position={[-90, -55, -4.5]}
       anchorX="left"
@@ -507,7 +538,7 @@ function NewsTV3_TV() {
 
       <Text
         frustumCulled={false}
-        font="/Silkscreen-Regular.ttf"
+        font={`${BASE_URL}/Silkscreen-Regular.ttf`}
         fontSize={12}
         position={[-90, 70, 1]}
         anchorX="left"
@@ -521,7 +552,7 @@ function NewsTV3_TV() {
       <Text
         ref={textRef}
         frustumCulled={false}
-        font="/Silkscreen-Regular.ttf"
+        font={`${BASE_URL}/Silkscreen-Regular.ttf`}
         fontSize={14}
         position={[90, 5, -4.5]}
         anchorX="left"
@@ -539,7 +570,7 @@ function NewsTV3_TV() {
 
       <Text
         frustumCulled={false}
-        font="/Silkscreen-Regular.ttf"
+        font={`${BASE_URL}/Silkscreen-Regular.ttf`}
         fontSize={10}
         position={[-90, -80, -4.5]}
         anchorX="left"
@@ -630,7 +661,7 @@ function useTVTexture(tvName: string, isTV: boolean) {
   return tex;
 }
 
-useGLTF.preload("/ComputersRevenge2.glb");
+useGLTF.preload(`${BASE_URL}/ComputersRevenge2.glb`);
 
 export default function Page() {
   return (

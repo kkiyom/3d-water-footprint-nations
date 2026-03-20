@@ -3,45 +3,45 @@
 import React, { useEffect, useRef, useState } from "react";
 import InfoPanel from "./Infopanel";
 
-/* =========================
-   ★ ここを調整
-   国名ラベルを表示し始める秒数
-   例: 動画の最後10秒だけ表示したいなら
-   「動画全体 - 10秒」で計算してもOK
-========================= */
-const SHOW_OVERLAY_FROM_SEC = 0;
+const BASE_URL = process.env.NEXT_PUBLIC_ASSET_URL ?? '';
 
 /* =========================
    国ラベル位置
    x, y は画面に対する %
-   最終フレームを見ながら微調整してね
+   最終フレームを見ながら微調整
 ========================= */
 const COUNTRIES = [
-  { code: "IN", name: "インド", x: 63, y: 43 },
-  { code: "BD", name: "バングラデシュ", x: 67, y: 48 },
-  { code: "PK", name: "パキスタン", x: 58, y: 38 },
-  { code: "TH", name: "タイ", x: 70, y: 56 },
-  { code: "CN", name: "チュウゴク", x: 55, y: 30 },
+  { code: "IN", name: "インド",         x: 62, y: 51, delay: 0.0 },
+  { code: "BD", name: "バングラデシュ",  x: 65, y: 48, delay: 0.1 },
+  { code: "PK", name: "パキスタン",      x: 60, y: 45, delay: 0.2 },
+  { code: "TH", name: "タイ",           x: 67, y: 53, delay: 0.3 },
+  { code: "CN", name: "中国",           x: 70, y: 40, delay: 0.4 },
 ] as const;
 
 export default function Page() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [started, setStarted] = useState(false);
   const [showOverlay, setShowOverlay] = useState(false);
   const [t, setT] = useState(0);
   const [duration, setDuration] = useState(0);
+  const videoRect = useVideoRect(videoRef, t);
 
   const start = async () => {
-    const v = videoRef.current;
-    if (!v) return;
-
     setStarted(true);
 
     try {
-      v.currentTime = 0;
-      await v.play();
+      if (videoRef.current) {
+        videoRef.current.currentTime = 0;
+        await videoRef.current.play();
+      }
+
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+        await audioRef.current.play();
+      }
     } catch (e) {
-      console.log("video play blocked:", e);
+      console.error(e);
     }
   };
 
@@ -51,7 +51,7 @@ export default function Page() {
 
     const current = v.currentTime;
     setT(current);
-    setShowOverlay(current >= SHOW_OVERLAY_FROM_SEC);
+    setShowOverlay(duration > 0 && current >= duration - ANIM_START_BEFORE_END_SEC);
   };
 
   const handleLoadedMetadata = () => {
@@ -61,13 +61,177 @@ export default function Page() {
   };
 
   const handleSeek = (value: number) => {
-    const v = videoRef.current;
-    if (!v) return;
+  const v = videoRef.current;
+  if (!v) return;
 
-    v.currentTime = value;
-    setT(value);
-    setShowOverlay(value >= SHOW_OVERLAY_FROM_SEC);
-  };
+  v.currentTime = value;
+  setT(value);
+  setShowOverlay(duration > 0 && value >= duration - ANIM_START_BEFORE_END_SEC);
+};
+
+  const ANIM_START_BEFORE_END_SEC = 5;
+  const showInfoPanel =
+    duration > 0 && t >= duration - ANIM_START_BEFORE_END_SEC + 2;
+
+  // 動画の実際の表示サイズと位置を計算するhook
+function useVideoRect(videoRef: React.RefObject<HTMLVideoElement>, t: number) {
+  const [rect, setRect] = useState({ x: 0, y: 0, w: 0, h: 0 });
+
+  useEffect(() => {
+    const update = () => {
+      const v = videoRef.current;
+      if (!v || !v.videoWidth) return;
+
+      const containerW = window.innerWidth;
+      const containerH = window.innerHeight;
+      const videoAspect = v.videoWidth / v.videoHeight;
+      const containerAspect = containerW / containerH;
+
+      let w, h, x, y;
+      if (videoAspect > containerAspect) {
+        // 横にフィット
+        w = containerW;
+        h = containerW / videoAspect;
+        x = 0;
+        y = (containerH - h) / 2;
+      } else {
+        // 縦にフィット
+        h = containerH;
+        w = containerH * videoAspect;
+        x = (containerW - w) / 2;
+        y = 0;
+      }
+      setRect({ x, y, w, h });
+    };
+
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [videoRef, t]);
+
+  return rect;
+}
+
+  function CountryLine({
+    country,
+    visible,
+    delay,
+    videoRect,
+  }: {
+    country: typeof COUNTRIES[number];
+    visible: boolean;
+    delay: number;
+    videoRect: { x: number; y: number; w: number; h: number };
+  }) {
+    const [progress, setProgress] = useState(0);
+    const [labelVisible, setLabelVisible] = useState(false);
+    const rafRef = useRef<number | null>(null);
+    const startRef = useRef<number | null>(null);
+    const DURATION = 600; // ms
+
+    useEffect(() => {
+      if (!visible) {
+        setProgress(0);
+        setLabelVisible(false);
+        startRef.current = null;
+        return;
+      }
+
+      const timeout = setTimeout(() => {
+        const animate = (now: number) => {
+          if (!startRef.current) startRef.current = now;
+          const p = Math.min((now - startRef.current) / DURATION, 1);
+          setProgress(p);
+          if (p >= 1) setLabelVisible(true);
+          else rafRef.current = requestAnimationFrame(animate);
+        };
+        rafRef.current = requestAnimationFrame(animate);
+      }, delay * 1000);
+
+      return () => {
+        clearTimeout(timeout);
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      };
+    }, [visible, delay]);
+
+    const toScreenX = (pct: number) => videoRect.x + videoRect.w * (pct / 100);
+    const toScreenY = (pct: number) => videoRect.y + videoRect.h * (pct / 100);
+
+    const sx1 = toScreenX(country.x);
+    const sy1 = toScreenY(country.y);
+    const sx2 = toScreenX(82); // 線の右端（動画内の%）
+    const sy2 = toScreenY(country.y);
+
+    const animSx2 = sx1 + (sx2 - sx1) * progress;
+    // 画面幅・高さに対する%座標
+    // 線の終点（ラベル側）は常に左端 x=18% あたり
+    const x1 = country.x; // %
+    const y1 = country.y; // %
+    const x2 = 82;        // % ← ラベルの右端
+    const y2 = country.y; // 水平線
+
+    // SVGは画面全体を覆う
+    const cx1 = `${x1}%`;
+    const cy1 = `${y1}%`;
+    // 線を progress でアニメーション（x1→x2 に伸びる）
+    const animX2 = x1 + (x2 - x1) * progress;
+    const cx2 = `${animX2}%`;
+    const cy2 = `${y2}%`;
+
+    return (
+      <>
+    <svg
+      style={{
+        position: "absolute",
+        inset: 0,
+        width: "100%",
+        height: "100%",
+        pointerEvents: "none",
+        zIndex: 11,
+        overflow: "visible",
+      }}
+    >
+      <circle
+        cx={sx1}
+        cy={sy1}
+        r="3"
+        fill="white"
+        opacity={visible ? 0.9 : 0}
+        style={{ transition: "opacity 0.3s" }}
+      />
+      <line
+        x1={sx1}
+        y1={sy1}
+        x2={animSx2}
+        y2={sy2}
+        stroke="rgba(255,255,255,0.7)"
+        strokeWidth="0.8"
+      />
+    </svg>
+
+    {labelVisible && (
+      <div
+        style={{
+          position: "absolute",
+          left: sx2 + 8,
+          top: sy2,
+          transform: "translateY(-50%)",
+          color: "rgba(255,255,255,0.92)",
+          fontSize: 11,
+          letterSpacing: "0.14em",
+          fontFamily: "monospace",
+          pointerEvents: "none",
+          whiteSpace: "nowrap",
+          zIndex: 12,
+          animation: "fadeIn 0.3s ease forwards",
+        }}
+      >
+        {country.name}
+      </div>
+    )}
+  </>
+    );
+  }
 
   useEffect(() => {
     const v = videoRef.current;
@@ -95,7 +259,7 @@ export default function Page() {
       {/* 背景動画 */}
       <video
         ref={videoRef}
-        src="/Ballmovie.mp4"
+        src={`${BASE_URL}/Ballmovie2.mp4`}
         preload="auto"
         playsInline
         controls={false}
@@ -111,6 +275,7 @@ export default function Page() {
       />
 
       {/* STARTボタン */}
+      <audio ref={audioRef} src={`${BASE_URL}/Ballaudio.flac`} preload="auto" />
       {!started && (
         <button
           onClick={start}
@@ -120,7 +285,7 @@ export default function Page() {
             margin: "auto",
             width: 160,
             height: 44,
-            borderRadius: 999,
+            borderRadius: 0,
             border: "none",
             background: "rgba(255,255,255,0.9)",
             color: "#111",
@@ -154,32 +319,33 @@ export default function Page() {
       {/* 国名ラベル */}
       {showOverlay &&
         COUNTRIES.map((c) => (
-          <div
+          <CountryLine
             key={c.code}
-            style={{
-              position: "absolute",
-              left: `${c.x}%`,
-              top: `${c.y}%`,
-              transform: "translate(-50%, -50%)",
-              color: "rgba(255,255,255,0.92)",
-              fontSize: 12,
-              letterSpacing: "0.14em",
-              pointerEvents: "none",
-              textShadow: "0 1px 12px rgba(0,0,0,0.65)",
-              userSelect: "none",
-              zIndex: 10,
-            }}
-          >
-            {c.name}
-          </div>
+            country={c}
+            visible={showOverlay}
+            delay={c.delay}
+            videoRect={videoRect}
+          />
         ))}
 
-      {/* InfoPanel はそのまま */}
-      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 15 }}>
-        <div style={{ pointerEvents: "auto" }}>
-          {/* <InfoPanel /> */}
+      {/* InfoPanel（全ラベル出たあとに表示） */}
+      {showInfoPanel && (
+        <div
+          style={{
+            position: "absolute",
+            left: 0,   
+            top: 0,
+            height: "100%",
+            width: 500,
+            zIndex: 15,
+            pointerEvents: "auto",
+            animation: "slideIn 0.5s ease forwards",
+          }}
+        >
+          <InfoPanel />
         </div>
-      </div>
+      )}
+
     </div>
   );
 }

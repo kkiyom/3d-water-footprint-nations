@@ -7,8 +7,11 @@ import { Suspense, useRef, useState, useMemo } from "react";
 import { a, useSpring } from "@react-spring/three";
 import { Water } from "three-stdlib";
 import { extend } from "@react-three/fiber";
+import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import InfoPanel from "./Infopanel";
 import { buildEstimatedBilateralFlows2016 } from "../data/waterFlows";
+
+const BASE_URL = process.env.NEXT_PUBLIC_ASSET_URL ?? '';
 
 extend({ Water });
 
@@ -16,6 +19,7 @@ type CountryWaterFootprint = {
   name: string;
   code: string;
   wfTotal: number;
+  wfPerCapita: number;
 };
 
 type LatLon = { lat: number; lon: number };
@@ -61,48 +65,48 @@ const countryCoords: Record<string, LatLon> = {
 };
 
 const countryWaterFootprints: CountryWaterFootprint[] = [
-  { name: '中国', code: 'CN', wfTotal: 1368003.7 },
-  { name: 'インド', code: 'IN', wfTotal: 1144605.1 },
-  { name: 'アメリカ', code: 'US', wfTotal: 821353.7 },
-  { name: 'ブラジル', code: 'BR', wfTotal: 355373.6 },
-  { name: 'ロシア', code: 'RU', wfTotal: 270490.4 },
-  { name: 'インドネシア', code: 'ID', wfTotal: 232238.6 },
-  { name: 'ナイジェリア', code: 'NG', wfTotal: 157335.7 },
-  { name: 'パキスタン', code: 'PK', wfTotal: 199429.0 },
-  { name: 'カナダ', code: 'CA', wfTotal: 72074.3 },
-  { name: 'タイ', code: 'TH', wfTotal: 88623.5 },
-  { name: 'メキシコ', code: 'MX', wfTotal: 197425.1 },
-  { name: 'アルゼンチン', code: 'AR', wfTotal: 59546.2 },
-  { name: 'トルコ', code: 'TR', wfTotal: 109757.9 },
-  { name: 'イラン', code: 'IR', wfTotal: 125348.3 },
-  { name: 'ベトナム', code: 'VN', wfTotal: 83817.6 },
-  { name: 'マレーシア', code: 'MY', wfTotal: 49339.9 },
-  { name: 'エチオピア', code: 'ET', wfTotal: 77632.3 },
-  { name: 'イタリア', code: 'IT', wfTotal: 132466.4 },
-  { name: 'エジプト', code: 'EG', wfTotal: 95155.5 },
-  { name: 'フランス', code: 'FR', wfTotal: 106131.9 },
-  { name: 'スペイン', code: 'ES', wfTotal: 100520.0 },
-  { name: 'モロッコ', code: 'MA', wfTotal: 49952.6 },
-  { name: 'ドイツ', code: 'DE', wfTotal: 117151.5 },
-  { name: 'ポーランド', code: 'PL', wfTotal: 53980.0 },
-  { name: 'ウクライナ', code: 'UA', wfTotal: 76744.4 },
-  { name: 'オーストラリア', code: 'AU', wfTotal: 44718.2 },
-  { name: '日本', code: 'JP', wfTotal: 174779.2 },
-  { name: 'イギリス', code: 'GB', wfTotal: 74645.7 },
-  { name: 'オランダ', code: 'NL', wfTotal: 23372.9 },
-  { name: 'スウェーデン', code: 'SE', wfTotal: 12724.1 },
-  { name: 'ノルウェー', code: 'NO', wfTotal: 6405.0 },
-  { name: 'バングラデシュ', code: 'BD', wfTotal: 109116.6 },
-  { name: 'ヨルダン', code: 'JO', wfTotal: 8316.5 },
-  { name: 'サウジアラビア', code: 'SA', wfTotal: 39046.6 },
-  { name: '南アフリカ', code: 'ZA', wfTotal: 56723.7 },
-  { name: '韓国', code: 'KR', wfTotal: 75669.8 },
+  { name: '中国', code: 'CN', wfTotal: 1368003.7, wfPerCapita: 1071 },
+  { name: 'インド', code: 'IN', wfTotal: 1144605.1, wfPerCapita: 1089 },
+  { name: 'アメリカ', code: 'US', wfTotal: 821353.7, wfPerCapita: 2842 },
+  { name: 'ブラジル', code: 'BR', wfTotal: 355373.6, wfPerCapita: 1861 },
+  { name: 'ロシア', code: 'RU', wfTotal: 270490.4, wfPerCapita: 1858 },
+  { name: 'インドネシア', code: 'ID', wfTotal: 232238.6, wfPerCapita: 1064 },
+  { name: 'ナイジェリア', code: 'NG', wfTotal: 157335.7, wfPerCapita: 1084 },
+  { name: 'パキスタン', code: 'PK', wfTotal: 199429.0, wfPerCapita: 1218 },
+  { name: 'カナダ', code: 'CA', wfTotal: 72074.3, wfPerCapita: 2194 },
+  { name: 'タイ', code: 'TH', wfTotal: 88623.5, wfPerCapita: 1345 },
+  { name: 'メキシコ', code: 'MX', wfTotal: 197425.1, wfPerCapita: 1978 },
+  { name: 'アルゼンチン', code: 'AR', wfTotal: 59546.2, wfPerCapita: 1620 },
+  { name: 'トルコ', code: 'TR', wfTotal: 109757.9, wfPerCapita: 1544 },
+  { name: 'イラン', code: 'IR', wfTotal: 125348.3, wfPerCapita: 1823 },
+  { name: 'ベトナム', code: 'VN', wfTotal: 83817.6, wfPerCapita: 1013 },
+  { name: 'マレーシア', code: 'MY', wfTotal: 49339.9, wfPerCapita: 1889 },
+  { name: 'エチオピア', code: 'ET', wfTotal: 77632.3, wfPerCapita: 1022 },
+  { name: 'イタリア', code: 'IT', wfTotal: 132466.4, wfPerCapita: 2332 },
+  { name: 'エジプト', code: 'EG', wfTotal: 95155.5, wfPerCapita: 1302 },
+  { name: 'フランス', code: 'FR', wfTotal: 106131.9, wfPerCapita: 1786 },
+  { name: 'スペイン', code: 'ES', wfTotal: 100520.0, wfPerCapita: 2461 },
+  { name: 'モロッコ', code: 'MA', wfTotal: 49952.6, wfPerCapita: 1567 },
+  { name: 'ドイツ', code: 'DE', wfTotal: 117151.5, wfPerCapita: 1426 },
+  { name: 'ポーランド', code: 'PL', wfTotal: 53980.0, wfPerCapita: 1409 },
+  { name: 'ウクライナ', code: 'UA', wfTotal: 76744.4, wfPerCapita: 1625 },
+  { name: 'オーストラリア', code: 'AU', wfTotal: 44718.2, wfPerCapita: 2315 },
+  { name: '日本', code: 'JP', wfTotal: 174779.2, wfPerCapita: 1380 },
+  { name: 'イギリス', code: 'GB', wfTotal: 74645.7, wfPerCapita: 1258 },
+  { name: 'オランダ', code: 'NL', wfTotal: 23372.9, wfPerCapita: 1426 },
+  { name: 'スウェーデン', code: 'SE', wfTotal: 12724.1, wfPerCapita: 1402 },
+  { name: 'ノルウェー', code: 'NO', wfTotal: 6405.0, wfPerCapita: 1381 },
+  { name: 'バングラデシュ', code: 'BD', wfTotal: 109116.6, wfPerCapita: 745 },
+  { name: 'ヨルダン', code: 'JO', wfTotal: 8316.5, wfPerCapita: 1303 },
+  { name: 'サウジアラビア', code: 'SA', wfTotal: 39046.6, wfPerCapita: 1604 },
+  { name: '南アフリカ', code: 'ZA', wfTotal: 56723.7, wfPerCapita: 1142 },
+  { name: '韓国', code: 'KR', wfTotal: 75669.8, wfPerCapita: 1629 },
 ];
 
 const ARC_BASE_COLOR = "#AEE6FF";     // 通常
 const ARC_EXPORT_HOVER = "#eaf75bc3";   // 輸出 (黄色)
-const ARC_IMPORT_HOVER = "#8b5efe";   // 輸入（紫）
-const ARC_LINK_HOVER = "#94f75b86";     // arc直接hover（黄色）
+const ARC_IMPORT_HOVER = "#5f64fb";   // 輸入（紫）
+const ARC_LINK_HOVER = "#62D2C6";     // arc直接hover（黄色）
 
 const minWF = Math.min(...countryWaterFootprints.map((c) => c.wfTotal));
 const maxWF = Math.max(...countryWaterFootprints.map((c) => c.wfTotal));
@@ -110,11 +114,17 @@ const maxWF = Math.max(...countryWaterFootprints.map((c) => c.wfTotal));
 //お風呂・プール換算
 const BATH_TUB_M3 = 0.2;
 const POOL_M3 = 25 * 10 * 1.5;
+const POOL_SWITCH_AT_M3 = 375; // 1人あたりが1プール以上ならプール表記
 
-function getEquivalents(wfPerCapita: number) {
-  const baths = wfPerCapita / BATH_TUB_M3;
-  const pools = wfPerCapita / POOL_M3;
-  return { baths, pools };
+function getEquivalentLabel(perCapitaM3: number) {
+  const baths = perCapitaM3 / BATH_TUB_M3;
+  const pools = perCapitaM3 / POOL_M3;
+
+  if (perCapitaM3 >= POOL_SWITCH_AT_M3) {
+    return `プール 約 ${Math.round(pools).toLocaleString()} 杯分 / 人 / 年`;
+  }
+
+  return `お風呂 約 ${Math.round(baths).toLocaleString()} 杯分 / 人 / 年`;
 }
 
 //球体配置
@@ -276,7 +286,7 @@ const AnimatedMaterial = a(MeshDistortMaterial);
 function RotatingSphere({ position, radius, color, country, onHoverCountry, }: RotatingSphereProps) {
   const ref = useRef<THREE.Mesh>(null!);
   const [hovered, setHovered] = useState(false);
-  const { baths, pools } = getEquivalents(country.wfTotal);
+  const compareLabel = getEquivalentLabel(country.wfTotal);
 
   // サンプルの wobble / coat / env を簡略化したやつ
   const [spring, api] = useSpring(() => ({
@@ -300,7 +310,7 @@ function RotatingSphere({ position, radius, color, country, onHoverCountry, }: R
   // 線形補間（大きくなるほど distort が小さくなる）
   const distortAmount = distortSmall + (distortLarge - distortSmall) * normSize;
   const baseHex = "#" + color.getHexString();
-  const hoverHex = "#FFE54A";
+  const hoverHex = "#6efbf6";
 
   return (
     <a.mesh
@@ -358,8 +368,9 @@ function RotatingSphere({ position, radius, color, country, onHoverCountry, }: R
             <br />
             {country.wfTotal} m³ / 年
             <br />
-            {/* お風呂 約 {Math.round(baths).toLocaleString()} 杯 */}
-
+             1人あたり: {country.wfPerCapita.toLocaleString()} m³
+            <br />
+            {compareLabel}
           </div>
         </Html>
       )}
@@ -587,7 +598,7 @@ function FlowLinks({
 function Ocean() {
   const ref = useRef<any>(null);
   const gl = useThree((state) => state.gl);
-  const waterNormals = useLoader(THREE.TextureLoader, "/waternormals.jpeg");
+  const waterNormals = useLoader(THREE.TextureLoader, `${BASE_URL}/waternormals.jpeg`);
   waterNormals.wrapS = waterNormals.wrapT = THREE.RepeatWrapping;
 
   const geom = useMemo(() => new THREE.PlaneGeometry(10000, 10000), []);
@@ -633,6 +644,14 @@ function Scene() {
 
   return (
     <>
+      {/* <fog attach="fog" args={["#05070b", 22, 100]} /> */}
+      <EffectComposer>
+        <Bloom
+          intensity={0.25}
+          luminanceThreshold={0.28}
+          luminanceSmoothing={0.18}
+        />
+      </EffectComposer>
       <pointLight decay={0} position={[100, 100, 100]} intensity={1.2} />
       <pointLight decay={0.5} position={[-100, -100, -100]} intensity={0.4} />
       <ambientLight intensity={0.5} />
