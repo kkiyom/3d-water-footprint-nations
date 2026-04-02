@@ -64,6 +64,17 @@ const countryCoords: Record<string, LatLon> = {
   AU: { lat: -25, lon: 133 },
 };
 
+const countryNamesEn: Record<string, string> = {
+  CN: 'China', IN: 'India', US: 'United States', BR: 'Brazil', RU: 'Russia',
+  ID: 'Indonesia', NG: 'Nigeria', PK: 'Pakistan', CA: 'Canada', TH: 'Thailand',
+  MX: 'Mexico', AR: 'Argentina', TR: 'Turkey', IR: 'Iran', VN: 'Vietnam',
+  MY: 'Malaysia', ET: 'Ethiopia', IT: 'Italy', EG: 'Egypt', FR: 'France',
+  ES: 'Spain', MA: 'Morocco', DE: 'Germany', PL: 'Poland', UA: 'Ukraine',
+  AU: 'Australia', JP: 'Japan', GB: 'United Kingdom', NL: 'Netherlands',
+  SE: 'Sweden', NO: 'Norway', BD: 'Bangladesh', JO: 'Jordan', SA: 'Saudi Arabia',
+  ZA: 'South Africa', KR: 'South Korea',
+};
+
 const countryWaterFootprints: CountryWaterFootprint[] = [
   { name: '中国', code: 'CN', wfTotal: 1368003.7, wfPerCapita: 1071 },
   { name: 'インド', code: 'IN', wfTotal: 1144605.1, wfPerCapita: 1089 },
@@ -116,14 +127,19 @@ const BATH_TUB_M3 = 0.2;
 const POOL_M3 = 25 * 10 * 1.5;
 const POOL_SWITCH_AT_M3 = 375; // 1人あたりが1プール以上ならプール表記
 
-function getEquivalentLabel(perCapitaM3: number) {
+function getEquivalentLabel(perCapitaM3: number, lang: "ja" | "en" = "ja") {
   const baths = perCapitaM3 / BATH_TUB_M3;
   const pools = perCapitaM3 / POOL_M3;
+
+  if (lang === "en") {
+    return perCapitaM3 >= POOL_SWITCH_AT_M3
+      ? `≈ ${Math.round(pools).toLocaleString()} pools / person / year`
+      : `≈ ${Math.round(baths).toLocaleString()} bathtubs / person / year`;
+  }
 
   if (perCapitaM3 >= POOL_SWITCH_AT_M3) {
     return `プール 約 ${Math.round(pools).toLocaleString()} 杯分 / 人 / 年`;
   }
-
   return `お風呂 約 ${Math.round(baths).toLocaleString()} 杯分 / 人 / 年`;
 }
 
@@ -279,14 +295,16 @@ type RotatingSphereProps = {
   color: THREE.Color;
   country: CountryWaterFootprint;
   onHoverCountry?: (code: string | null) => void;
+  lang?: "ja" | "en";
 };
 
 const AnimatedMaterial = a(MeshDistortMaterial);
 
-function RotatingSphere({ position, radius, color, country, onHoverCountry, }: RotatingSphereProps) {
+function RotatingSphere({ position, radius, color, country, onHoverCountry, lang = "ja" }: RotatingSphereProps) {
   const ref = useRef<THREE.Mesh>(null!);
   const [hovered, setHovered] = useState(false);
-  const compareLabel = getEquivalentLabel(country.wfTotal);
+  const compareLabel = getEquivalentLabel(country.wfPerCapita, lang);
+  const displayName = lang === "en" ? (countryNamesEn[country.code] ?? country.name) : country.name;
 
   // サンプルの wobble / coat / env を簡略化したやつ
   const [spring, api] = useSpring(() => ({
@@ -352,23 +370,21 @@ function RotatingSphere({ position, radius, color, country, onHoverCountry, }: R
 
       {hovered && (
         <Html center distanceFactor={20}>
-          <div
-            style={{
-              padding: "10px 16px",
-              borderRadius: "16px",
-              background: "rgba(30, 12, 50, 0.9)",
-              border: "1px solid rgba(255, 220, 255, 0.7)",
-              color: "white",
-              fontSize: "15px",
-              whiteSpace: "nowrap",
-              backdropFilter: "blur(6px)",
-            }}
-          >
-            <strong>{country.name}</strong>
+          <div style={{
+            padding: "14px 22px",
+            borderRadius: "16px",
+            background: "rgba(30, 12, 50, 0.9)",
+            border: "1px solid rgba(255, 220, 255, 0.7)",
+            color: "white",
+            fontSize: "15px",
+            whiteSpace: "nowrap",
+            backdropFilter: "blur(6px)",
+          }}>
+            <strong>{displayName}</strong>
             <br />
-            {country.wfTotal} m³ / 年
+            {lang === "en" ? "Total" : "合計"}: {country.wfTotal.toLocaleString()} m³ / {lang === "en" ? "yr" : "年"}
             <br />
-             1人あたり: {country.wfPerCapita.toLocaleString()} m³
+            {lang === "en" ? "Per capita" : "1人あたり"}: {country.wfPerCapita.toLocaleString()} m³
             <br />
             {compareLabel}
           </div>
@@ -629,7 +645,7 @@ function Ocean() {
   );
 }
 
-function Scene() {
+function Scene({ lang }: { lang: "ja" | "en" }) {
   const globeRef = useRef<THREE.Group>(null);
   const [hoveredCountry, setHoveredCountry] = useState<string | null>(null);
   const [hoveredLink, setHoveredLink] = useState<string | null>(null);
@@ -678,6 +694,7 @@ function Scene() {
               color={s.color}
               country={s}
               onHoverCountry={setHoveredCountry}
+              lang={lang}
             />
           ))}
           <FlowLinks
@@ -707,12 +724,14 @@ function Scene() {
 
 
 export default function Page() {
+  const [lang, setLang] = useState<"ja" | "en">("ja");
+
   return (
     <div style={{ width: "100vw", height: "100vh", background: "#020817" }}>
       <Canvas camera={{ position: [0, 60, 120], fov: 55, near: 1, far: 2000 }}>
-        <Scene />
+        <Scene lang={lang} />
       </Canvas>
-      <InfoPanel />
+      <InfoPanel lang={lang} onLangChange={setLang} />
     </div>
   );
 }

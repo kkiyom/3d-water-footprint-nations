@@ -282,44 +282,44 @@ function useVideoRect(videoRef: React.RefObject<HTMLVideoElement>, t: number) {
             position: "absolute",
             inset: 0,
             margin: "auto",
-            width: 160,
+            width: "fit-content",
             height: "fit-content",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            gap: 12,
+            gap: 10,
             zIndex: 30,
           }}
         >
           <button
             onClick={start}
             style={{
-              width: 160,
-              
-              borderRadius: 0,
-              border: "none",
-              background: "rgba(255,255,255,0.9)",
-              color: "#111",
+              width: 250,
+              padding: "14px 0",
+              border: "1px solid rgba(255,255,255,0.5)",
+              background: "rgba(0,0,0,0.7)",
+              color: "rgba(255,255,255,0.92)",
+              fontFamily: "monospace",
+              fontSize: 18,
               fontWeight: 700,
-              letterSpacing: "0.08em",
+              letterSpacing: "0.25em",
               cursor: "pointer",
+              backdropFilter: "blur(6px)",
               display: "flex",
               flexDirection: "column",
-              padding: "15px"
+              alignItems: "center",
+              gap: 7,
             }}
           >
             START
-            <span
-              style={{
-                fontSize: 11,
-                fontFamily: "monospace",
-                letterSpacing: "0.1em",
-                color: "rgba(0, 0, 0, 0.55)",
-                marginTop: "5px",
-              }}
-            >
-            ※ 音が出ます
-          </span>
+            <span style={{
+              fontSize: 13,
+              letterSpacing: "0.12em",
+              color: "rgba(255, 255, 255, 0.76)",
+              fontWeight: 400,
+            }}>
+              ※ 音が出ます
+            </span>
           </button>
         </div>
       )}
