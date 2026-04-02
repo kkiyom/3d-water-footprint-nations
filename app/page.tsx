@@ -366,9 +366,56 @@ function useTVTexture(tvName: string, isTV: boolean) {
 
 useGLTF.preload(`${BASE_URL}/ComputersRevenge2.glb`);
 
-export default function Page() {
+// Canvasの中でマウントされたら親にローディング完了を通知
+function SceneReady({ onReady }: { onReady: () => void }) {
+  useEffect(() => { onReady(); }, [onReady]);
+  return null;
+}
+
+function LoadingScreen() {
   return (
-    <main style={{ width: "100vw", height: "100vh" }}>
+    <div style={{
+      position: "absolute",
+      inset: 0,
+      background: "#111",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: "32px",
+      zIndex: 10,
+    }}>
+      <img
+        src={`/entity_logo.svg`}
+        alt="entity"
+        style={{
+          width: "360px",
+          filter: "invert(1)",
+          animation: "breathe 2s ease-in-out infinite",
+        }}
+      />
+      <span style={{
+        fontFamily: "monospace",
+        fontSize: "11px",
+        letterSpacing: "0.25em",
+        color: "#fff",
+      }}>
+        LOADING...
+      </span>
+      <style>{`@keyframes breathe {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50%       { opacity: 0.4; transform: scale(0.97); }
+      }`}</style>
+    </div>
+  );
+}
+
+export default function Page() {
+  const [loaded, setLoaded] = useState(false);
+
+  return (
+    <main style={{ width: "100vw", height: "100vh", position: "relative" }}>
+      {!loaded && <LoadingScreen />}
       <Canvas
         camera={{ position: [20, 20, 20], fov: 10, near: 0.1, far: 100 }}
       >
@@ -382,6 +429,7 @@ export default function Page() {
             maxPolarAngle={Math.PI / 2}
           />
           <Model />
+          <SceneReady onReady={() => setLoaded(true)} />
           <CameraRig />
           <EffectComposer>
             <Bloom

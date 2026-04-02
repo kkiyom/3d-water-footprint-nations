@@ -14,7 +14,7 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "entity",
+  title: "entity - Enter the unseen of the world",
   description: "日常の裏にある、見えないデータや構造を可視化する。データビジュアライゼーションアート。",
 };
 

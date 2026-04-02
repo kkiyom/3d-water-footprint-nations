@@ -277,30 +277,55 @@ function useVideoRect(videoRef: React.RefObject<HTMLVideoElement>, t: number) {
       {/* STARTボタン */}
       <audio ref={audioRef} src={`${BASE_URL}/Ballaudio.flac`} preload="auto" />
       {!started && (
-        <button
-          onClick={start}
+        <div
           style={{
             position: "absolute",
             inset: 0,
             margin: "auto",
             width: 160,
-            height: 44,
-            borderRadius: 0,
-            border: "none",
-            background: "rgba(255,255,255,0.9)",
-            color: "#111",
-            fontWeight: 700,
-            letterSpacing: "0.08em",
+            height: "fit-content",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 12,
             zIndex: 30,
-            cursor: "pointer",
           }}
         >
-          START
-        </button>
+          <button
+            onClick={start}
+            style={{
+              width: 160,
+              
+              borderRadius: 0,
+              border: "none",
+              background: "rgba(255,255,255,0.9)",
+              color: "#111",
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              cursor: "pointer",
+              display: "flex",
+              flexDirection: "column",
+              padding: "15px"
+            }}
+          >
+            START
+            <span
+              style={{
+                fontSize: 11,
+                fontFamily: "monospace",
+                letterSpacing: "0.1em",
+                color: "rgba(0, 0, 0, 0.55)",
+                marginTop: "5px",
+              }}
+            >
+            ※ 音が出ます
+          </span>
+          </button>
+        </div>
       )}
 
       {/* シークバー */}
-      <input
+      {/* <input
         type="range"
         min={0}
         max={duration || 0}
@@ -314,7 +339,7 @@ function useVideoRect(videoRef: React.RefObject<HTMLVideoElement>, t: number) {
           width: 320,
           zIndex: 20,
         }}
-      />
+      /> */}
 
       {/* 国名ラベル */}
       {showOverlay &&
