@@ -11,7 +11,7 @@ const content = {
       綿花の栽培、糸や布の製造、合成皮革の加工、染色、縫製から包装まで、
       多くの工程が世界中で分担されています。
       <br /><br />
-      特に生産拠点として知られるアジア諸国（パキスタン、インド、バングラデシュ、中国、タイ）では、
+      特に生産拠点として知られるアジア諸国（パキスタン、インド、中国、タイ）では、
       縫製・組立の工程で児童労働が報告されてきました。
       また、綿花など原料の段階では、アフリカの一部地域（ガーナ、コートジボワール）でも
       児童労働のリスクが存在します。
@@ -37,7 +37,7 @@ const content = {
       cotton farming, thread and fabric manufacturing, synthetic leather processing,
       dyeing, stitching, and packaging — each step divided across countries.
       <br /><br />
-      In major production hubs across Asia (Pakistan, India, Bangladesh, China, Thailand),
+      In major production hubs across Asia (Pakistan, India, China, Thailand),
       child labor has been documented in stitching and assembly.
       In raw material supply chains — particularly cotton — child labor risks
       also exist in parts of Africa (Ghana, Côte d'Ivoire).
@@ -58,8 +58,7 @@ const content = {
   },
 };
 
-export default function InfoPanel() {
-  const [lang, setLang] = useState<"ja" | "en">("ja");
+export default function InfoPanel({ lang, onLangChange }: { lang: "ja" | "en"; onLangChange: (l: "ja" | "en") => void }) {
   const [open, setOpen] = useState(true);
   const c = content[lang];
 
@@ -116,7 +115,7 @@ export default function InfoPanel() {
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0, marginLeft: 12 }}>
           <button
-            onClick={() => setLang(lang === "ja" ? "en" : "ja")}
+            onClick={() => onLangChange(lang === "ja" ? "en" : "ja")}
             style={{
               background: "rgba(0,0,0,0.5)",
               color: "rgba(255,255,255,0.92)",

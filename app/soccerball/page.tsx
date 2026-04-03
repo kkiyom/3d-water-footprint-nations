@@ -11,12 +11,12 @@ const BASE_URL = process.env.NEXT_PUBLIC_ASSET_URL ?? '';
    最終フレームを見ながら微調整
 ========================= */
 const COUNTRIES = [
-  { code: "IN", name: "インド",         x: 62, y: 51, delay: 0.0 },
-  { code: "BD", name: "バングラデシュ",  x: 65, y: 48, delay: 0.1 },
-  { code: "PK", name: "パキスタン",      x: 60, y: 45, delay: 0.2 },
-  { code: "TH", name: "タイ",           x: 67, y: 53, delay: 0.3 },
-  { code: "CN", name: "中国",           x: 70, y: 40, delay: 0.4 },
-] as const;
+  { code: "IN", name: "インド",         nameEn: "India",        x: 62, y: 51, delay: 0.0 },
+  // { code: "BD", name: "バングラデシュ",  nameEn: "Bangladesh",   x: 65, y: 48, delay: 0.1 },
+  { code: "PK", name: "パキスタン",      nameEn: "Pakistan",     x: 60, y: 45, delay: 0.2 },
+  { code: "TH", name: "タイ",           nameEn: "Thailand",     x: 67, y: 53, delay: 0.3 },
+  { code: "CN", name: "中国",           nameEn: "China",        x: 70, y: 40, delay: 0.4 },
+];
 
 export default function Page() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -25,6 +25,7 @@ export default function Page() {
   const [showOverlay, setShowOverlay] = useState(false);
   const [t, setT] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [lang, setLang] = useState<"ja" | "en">("ja");
   const videoRect = useVideoRect(videoRef, t);
 
   const start = async () => {
@@ -117,11 +118,13 @@ function useVideoRect(videoRef: React.RefObject<HTMLVideoElement>, t: number) {
     visible,
     delay,
     videoRect,
+    lang,
   }: {
     country: typeof COUNTRIES[number];
     visible: boolean;
     delay: number;
     videoRect: { x: number; y: number; w: number; h: number };
+    lang: "ja" | "en";
   }) {
     const [progress, setProgress] = useState(0);
     const [labelVisible, setLabelVisible] = useState(false);
@@ -226,7 +229,7 @@ function useVideoRect(videoRef: React.RefObject<HTMLVideoElement>, t: number) {
           animation: "fadeIn 0.3s ease forwards",
         }}
       >
-        {country.name}
+        {lang === "en" ? country.nameEn : country.name}
       </div>
     )}
   </>
@@ -350,6 +353,7 @@ function useVideoRect(videoRef: React.RefObject<HTMLVideoElement>, t: number) {
             visible={showOverlay}
             delay={c.delay}
             videoRect={videoRect}
+            lang={lang}
           />
         ))}
 
@@ -367,7 +371,7 @@ function useVideoRect(videoRef: React.RefObject<HTMLVideoElement>, t: number) {
             animation: "slideIn 0.5s ease forwards",
           }}
         >
-          <InfoPanel />
+          <InfoPanel lang={lang} onLangChange={setLang} />
         </div>
       )}
 
