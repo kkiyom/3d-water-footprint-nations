@@ -119,8 +119,8 @@ const ARC_EXPORT_HOVER = "#eaf75bc3";   // 輸出 (黄色)
 const ARC_IMPORT_HOVER = "#5f64fb";   // 輸入（紫）
 const ARC_LINK_HOVER = "#62D2C6";     // arc直接hover（黄色）
 
-const minWF = Math.min(...countryWaterFootprints.map((c) => c.wfTotal));
-const maxWF = Math.max(...countryWaterFootprints.map((c) => c.wfTotal));
+const minWF = Math.min(...countryWaterFootprints.map((c) => c.wfPerCapita));
+const maxWF = Math.max(...countryWaterFootprints.map((c) => c.wfPerCapita));
 
 //お風呂・プール換算
 const BATH_TUB_M3 = 0.2;
@@ -162,15 +162,15 @@ function latLonToXYZ(
   return [x, y, z];
 }
 
-const EARTH_RADIUS = 20;
+const EARTH_RADIUS = 16;
 
 const spheres: SphereInfo[] = (() => {
   const result: SphereInfo[] = [];
 
   countryWaterFootprints.forEach((country, index) => {
     const t =
-      (country.wfTotal - minWF) / (maxWF - minWF || 1); // 0〜1
-    const size = 0.8 + t * 4.8;
+      (country.wfPerCapita - minWF) / (maxWF - minWF || 1); // 0〜1
+    const size = 0.4 + Math.pow(t, 1.4) * 6.0;
 
     const baseCoord = countryCoords[country.code] ?? { lat: 0, lon: 0 };
     let lat = baseCoord.lat;
@@ -225,7 +225,7 @@ const spheres: SphereInfo[] = (() => {
     result.push({
       ...country,
       size,
-      color: waterBlueGradient(country.wfTotal),
+      color: waterBlueGradient(country.wfPerCapita),
       position,
     });
   });
@@ -247,28 +247,10 @@ function waterBlueGradient(wf: number): THREE.Color {
   const tRaw = (wf - minWF) / (maxWF - minWF || 1);
   const t = Math.min(Math.max(tRaw, 0), 1);
 
-  if (t <= 0.01) {
-    return new THREE.Color(0xffffff);
-  }
-
-  let h: number, s: number, l: number;
-
-  if (t <= 0.08) {
-    const u = (t - 0.01) / (0.08 - 0.01);
-    h = 190 / 360;
-    s = 0.05 + (0.5 - 0.05) * u;
-    l = 0.96 + (0.8 - 0.96) * u;
-  } else if (t <= 0.25) {
-    const u = (t - 0.08) / (0.25 - 0.08);
-    h = (190 + (200 - 190) * u) / 360;
-    s = 0.5 + (0.7 - 0.35) * u;
-    l = 0.6 + (0.72 - 0.88) * u;
-  } else {
-    const u = Math.pow((t - 0.25) / (1 - 0.25), 0.9);
-    h = (200 + (220 - 200) * u) / 360;
-    s = 0.7 + (1.0 - 0.7) * u;
-    l = 0.4 + (0.4 - 0.72) * u;
-  }
+  // 白みがかった水色（t=0） → 深い藍色（t=1）
+  const h = (196 + t * 30) / 360;   // 196°(空色) → 226°(藍)
+  const s = 0.18 + t * 0.82;        // 淡い → 鮮やか
+  const l = 0.94 - t * 0.76;        // 明るい白 → 濃い紺
 
   const color = new THREE.Color();
   color.setHSL(h, s, l);
@@ -306,29 +288,20 @@ function RotatingSphere({ position, radius, color, country, onHoverCountry, lang
   const compareLabel = getEquivalentLabel(country.wfPerCapita, lang);
   const displayName = lang === "en" ? (countryNamesEn[country.code] ?? country.name) : country.name;
 
-  // サンプルの wobble / coat / env を簡略化したやつ
   const [spring, api] = useSpring(() => ({
     wobble: 1,
     config: { mass: 2, tension: 800, friction: 15 },
   }));
 
-  // 形は変えず、ゆっくり回転だけ
   useFrame(() => {
     if (!ref.current) return;
     ref.current.rotation.x += 0.003;
     ref.current.rotation.y += 0.003;
   });
 
-  // 半径を 0〜1 に正規化（size ≒ 0.8〜5.6 を想定）
-  const normSize = Math.min(Math.max((radius - 0.8) / 4.8, 0), 1);
-
-  // distort の下限・上限をかなり分ける
-  const distortSmall = 0.27; // 一番小さい球
-  const distortLarge = 0.06; // 一番大きい球はほぼツルツル
-  // 線形補間（大きくなるほど distort が小さくなる）
-  const distortAmount = distortSmall + (distortLarge - distortSmall) * normSize;
+  const normSize = Math.min(Math.max((radius - 0.4) / 6.0, 0), 1);
+  const distortAmount = 0.27 + (0.06 - 0.27) * normSize;
   const baseHex = "#" + color.getHexString();
-  const hoverHex = "#6efbf6";
 
   return (
     <a.mesh
@@ -340,25 +313,19 @@ function RotatingSphere({ position, radius, color, country, onHoverCountry, lang
         setHovered(true);
         onHoverCountry?.(country.code);
         document.body.style.cursor = "pointer";
-        api.start({
-          wobble: 1.1,
-        });
+        api.start({ wobble: 1.1 });
       }}
       onPointerOut={(e) => {
         e.stopPropagation();
         setHovered(false);
         onHoverCountry?.(null);
         document.body.style.cursor = "default";
-        // 元のサイズにぷるぷる戻る
-        api.start({
-          wobble: 1,
-        });
+        api.start({ wobble: 1 });
       }}
     >
       <sphereGeometry args={[radius, 64, 64]} />
-
       <AnimatedMaterial
-        color={hovered ? hoverHex : baseHex}  // ★ 安定してパキッと切替
+        color={hovered ? "#6efbf6" : baseHex}
         distort={distortAmount}
         speed={0}
         envMapIntensity={0.9}
@@ -369,18 +336,20 @@ function RotatingSphere({ position, radius, color, country, onHoverCountry, lang
       />
 
       {hovered && (
-        <Html center distanceFactor={20}>
+        <Html center distanceFactor={20} style={{ pointerEvents: "none" }}>
           <div style={{
-            padding: "14px 22px",
+            padding: "18px 28px",
             borderRadius: "16px",
-            background: "rgba(30, 12, 50, 0.9)",
+            background: "rgba(30, 12, 50, 0.92)",
             border: "1px solid rgba(255, 220, 255, 0.7)",
             color: "white",
-            fontSize: "15px",
+            fontSize: "17px",
+            lineHeight: "1.7",
             whiteSpace: "nowrap",
             backdropFilter: "blur(6px)",
+            pointerEvents: "none",
           }}>
-            <strong>{displayName}</strong>
+            <strong style={{ fontSize: "19px" }}>{displayName}</strong>
             <br />
             {lang === "en" ? "Total" : "合計"}: {country.wfTotal.toLocaleString()} m³ / {lang === "en" ? "yr" : "年"}
             <br />
@@ -458,68 +427,39 @@ function greatCirclePoints(
 
 // ====== 4) 1本のアーチ線（ArcLink） ======
 function ArcLink({
-  value,
-  fromPos,
-  toPos,
-  minV,
-  maxV,
-  highlighted,
-  color,
-  onHover,
+  value, fromPos, toPos, minV, maxV, highlighted, color,
 }: {
-  value: number;
-  fromPos: THREE.Vector3;
-  toPos: THREE.Vector3;
-  minV: number;
-  maxV: number;
-  highlighted: boolean;
-  color: string;
+  value: number; fromPos: THREE.Vector3; toPos: THREE.Vector3;
+  minV: number; maxV: number; highlighted: boolean; color: string;
   onHover?: (id: string | null) => void;
 }) {
-  const geometry = useMemo(() => {
-    const width = mapThickness(value, minV, maxV); // ← 幅になる
+  const progressRef = useRef(0);
 
+  const { geometry, indexCount } = useMemo(() => {
+    const width = mapThickness(value, minV, maxV);
     const segments = 90;
-    const baseRadius = EARTH_RADIUS; // あなたの地球半径と同じ（=20）
-    const liftMax = 2.0;             // 0〜3で調整（大きいほど少し浮く）
-    const points = greatCirclePoints(fromPos, toPos, baseRadius, segments, liftMax);
-
+    const points = greatCirclePoints(fromPos, toPos, EARTH_RADIUS, segments, 2.0);
     const positions: number[] = [];
     const indices: number[] = [];
 
     for (let i = 0; i < points.length; i++) {
+      const t = i / (points.length - 1);
+      const taper = Math.sin(Math.PI * t); // 両端0→中央1→両端0（尖る）
+      const w = width * taper;
       const p = points[i];
-
-      // 接線
-      const tangent =
-        i < points.length - 1
-          ? points[i + 1].clone().sub(p)
-          : p.clone().sub(points[i - 1]);
+      const tangent = i < points.length - 1
+        ? points[i + 1].clone().sub(p)
+        : p.clone().sub(points[i - 1]);
       tangent.normalize();
-
-      // カメラ方向に近い法線（y軸基準で安定）
       const normal = new THREE.Vector3()
         .crossVectors(tangent, new THREE.Vector3(0, 1, 0))
         .normalize()
-        .multiplyScalar(width * 0.5);
-
-      const left = p.clone().add(normal);
-      const right = p.clone().sub(normal);
-
-      positions.push(
-        left.x, left.y, left.z,
-        right.x, right.y, right.z
-      );
-
+        .multiplyScalar(w * 0.5);
+      positions.push(p.x + normal.x, p.y + normal.y, p.z + normal.z);
+      positions.push(p.x - normal.x, p.y - normal.y, p.z - normal.z);
       if (i < points.length - 1) {
-        const a = i * 2;
-        const b = i * 2 + 1;
-        const c = i * 2 + 2;
-        const d = i * 2 + 3;
-
-        // 2 triangles per segment
-        indices.push(a, b, c);
-        indices.push(b, d, c);
+        const a = i * 2, b = i * 2 + 1, c = i * 2 + 2, d = i * 2 + 3;
+        indices.push(a, b, c, b, d, c);
       }
     }
 
@@ -527,20 +467,26 @@ function ArcLink({
     geom.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
     geom.setIndex(indices);
     geom.computeVertexNormals();
-
-    return geom;
+    geom.setDrawRange(0, 0);
+    return { geometry: geom, indexCount: indices.length };
   }, [fromPos, toPos, value, minV, maxV]);
 
-  const material = useMemo(() => {
-    const isOn = highlighted;
-    return new THREE.MeshBasicMaterial({
-      color: new THREE.Color(color),
-      transparent: true,
-      opacity: isOn ? 0.85 : 0.3,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    });
-  }, [highlighted]);
+  const material = useMemo(() => new THREE.MeshBasicMaterial({
+    transparent: true,
+    opacity: 0.70,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  }), []);
+
+  useFrame((_, delta) => {
+    if (highlighted) {
+      progressRef.current = Math.min(1, progressRef.current + delta * 2.5);
+      material.color.set(color);
+    } else {
+      progressRef.current = Math.max(0, progressRef.current - delta * 8);
+    }
+    geometry.setDrawRange(0, Math.floor(progressRef.current * indexCount));
+  });
 
   return <mesh geometry={geometry} material={material} />;
 }
@@ -728,7 +674,7 @@ export default function Page() {
 
   return (
     <div style={{ width: "100vw", height: "100vh", background: "#020817" }}>
-      <Canvas camera={{ position: [0, 60, 120], fov: 55, near: 1, far: 2000 }}>
+      <Canvas camera={{ position: [0, 40, 80], fov: 40, near: 1, far: 2000 }}>
         <Scene lang={lang} />
       </Canvas>
       <InfoPanel lang={lang} onLangChange={setLang} />

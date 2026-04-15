@@ -13,13 +13,13 @@ const BASE_URL = process.env.NEXT_PUBLIC_ASSET_URL ?? '';
 const SCREEN_IMAGES: Record<string, string> = {
   screen2: `${BASE_URL}/Waterballsphoto.png`,
   screen3: `${BASE_URL}/Ball.png`,
-  screen7: "",
+  screen7: `${BASE_URL}/carbon.png`,
 };
 
 const SCREEN_SIZES: Record<string, number> = {
   screen2: 20,
   screen3: 40,
-  screen7: 40,
+  screen7: 25,
 };
 
 const SCREEN_PARAMS: Record<string, { direction: 1 | -1; speed: number; y: number }> = {
@@ -33,6 +33,7 @@ const SCREEN_PARAMS: Record<string, { direction: 1 | -1; speed: number; y: numbe
 const ROUTE_MAP: Record<string, string> = {
   screen2: "/waterfootprint",
   screen3: "/soccerball",
+  screen7: "/carbonfootprint",
 };
 
 function FlowingText({
