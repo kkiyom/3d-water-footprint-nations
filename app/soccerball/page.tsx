@@ -26,6 +26,14 @@ export default function Page() {
   const [t, setT] = useState(0);
   const [duration, setDuration] = useState(0);
   const [lang, setLang] = useState<"ja" | "en">("ja");
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
   const videoRect = useVideoRect(videoRef, t);
 
   const start = async () => {
@@ -220,7 +228,7 @@ function useVideoRect(videoRef: React.RefObject<HTMLVideoElement>, t: number) {
           top: sy2,
           transform: "translateY(-50%)",
           color: "rgba(255,255,255,0.92)",
-          fontSize: 11,
+          fontSize: isMobile ? 9 : 11,
           letterSpacing: "0.14em",
           fontFamily: "monospace",
           pointerEvents: "none",
@@ -297,7 +305,7 @@ function useVideoRect(videoRef: React.RefObject<HTMLVideoElement>, t: number) {
           <button
             onClick={start}
             style={{
-              width: 250,
+              width: isMobile ? "80vw" : 250,
               padding: "14px 0",
               border: "1px solid rgba(255,255,255,0.5)",
               background: "rgba(0,0,0,0.7)",
@@ -371,7 +379,7 @@ function useVideoRect(videoRef: React.RefObject<HTMLVideoElement>, t: number) {
             animation: "slideIn 0.5s ease forwards",
           }}
         >
-          <InfoPanel lang={lang} onLangChange={setLang} />
+          <InfoPanel lang={lang} onLangChange={setLang} defaultOpen={!isMobile} />
         </div>
       )}
 

@@ -58,8 +58,8 @@ const content = {
   },
 };
 
-export default function InfoPanel({ lang, onLangChange }: { lang: "ja" | "en"; onLangChange: (l: "ja" | "en") => void }) {
-  const [open, setOpen] = useState(true);
+export default function InfoPanel({ lang, onLangChange, defaultOpen = true }: { lang: "ja" | "en"; onLangChange: (l: "ja" | "en") => void; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
   const c = content[lang];
 
   if (!open) {

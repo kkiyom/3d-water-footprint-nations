@@ -1,7 +1,7 @@
 "use client";
 
 import * as THREE from "three";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Html } from "@react-three/drei";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { a, useSpring } from "@react-spring/three";
@@ -450,12 +450,19 @@ type RotatingSphereProps = {
   country: CountryCO2;
   onHoverCountry?: (code: string | null) => void;
   lang?: "ja" | "en";
+  resetKey?: number;
+  isMobile?: boolean;
 };
 
-function RotatingSphere({ position, radius, color, country, onHoverCountry, lang = "ja" }: RotatingSphereProps) {
+function RotatingSphere({ position, radius, color, country, onHoverCountry, lang = "ja", resetKey, isMobile = false }: RotatingSphereProps) {
   const ref = useRef<THREE.Mesh>(null!);
   const matRef = useRef<THREE.ShaderMaterial>(null!);
   const [hovered, setHovered] = useState(false);
+
+  useEffect(() => {
+    setHovered(false);
+    onHoverCountry?.(null);
+  }, [resetKey]);
   const displayName = lang === "en" ? (countryNamesEn[country.code] ?? country.name) : country.name;
   const avgLabel = getWorldAvgLabel(country.co2PerCapita, lang);
 
@@ -496,6 +503,13 @@ function RotatingSphere({ position, radius, color, country, onHoverCountry, lang
         document.body.style.cursor = "default";
         api.start({ wobble: 1 });
       }}
+      onClick={(e) => {
+        e.stopPropagation();
+        const next = !hovered;
+        setHovered(next);
+        onHoverCountry?.(next ? country.code : null);
+        api.start({ wobble: next ? 1.1 : 1 });
+      }}
     >
       <sphereGeometry args={[radius, 32, 32]} />
       <shaderMaterial
@@ -509,18 +523,18 @@ function RotatingSphere({ position, radius, color, country, onHoverCountry, lang
       {hovered && (
         <Html center distanceFactor={20} style={{ pointerEvents: "none" }}>
           <div style={{
-            padding: "18px 28px",
+            padding: isMobile ? "10px 14px" : "18px 28px",
             borderRadius: "16px",
             background: "rgba(30, 8, 0, 0.92)",
             border: "1px solid rgba(255, 160, 40, 0.7)",
             color: "white",
-            fontSize: "17px",
+            fontSize: isMobile ? "13px" : "17px",
             lineHeight: "1.7",
             whiteSpace: "nowrap",
             backdropFilter: "blur(6px)",
             pointerEvents: "none",
           }}>
-            <strong style={{ fontSize: "19px" }}>{displayName}</strong>
+            <strong style={{ fontSize: isMobile ? "15px" : "19px" }}>{displayName}</strong>
             <br />
             {lang === "en" ? "Total" : "合計"}: {country.co2Total.toLocaleString()} MtCO₂ / {lang === "en" ? "yr" : "年"}
             <br />
@@ -563,7 +577,18 @@ function Stars() {
   );
 }
 
-function Scene({ lang }: { lang: "ja" | "en" }) {
+function CameraSetup({ isMobile }: { isMobile: boolean }) {
+  const { camera } = useThree();
+  useEffect(() => {
+    const cam = camera as THREE.PerspectiveCamera;
+    cam.position.set(0, 60, isMobile ? 170 : 120);
+    cam.fov = isMobile ? 65 : 55;
+    cam.updateProjectionMatrix();
+  }, [isMobile, camera]);
+  return null;
+}
+
+function Scene({ lang, resetKey, isMobile }: { lang: "ja" | "en"; resetKey: number; isMobile: boolean }) {
   const globeRef = useRef<THREE.Group>(null);
   const [hoveredCountry, setHoveredCountry] = useState<string | null>(null);
 
@@ -585,9 +610,10 @@ function Scene({ lang }: { lang: "ja" | "en" }) {
       <ambientLight intensity={0.5} />
       <hemisphereLight groundColor={0x1a0800} intensity={1.0} />
 
+      <CameraSetup isMobile={isMobile} />
       <Suspense fallback={null}>
         <Stars />
-        <group ref={globeRef}>
+        <group ref={globeRef} scale={isMobile ? 0.62 : 1}>
           {spheres.map((s) => (
             <RotatingSphere
               key={s.code}
@@ -597,6 +623,8 @@ function Scene({ lang }: { lang: "ja" | "en" }) {
               country={s}
               onHoverCountry={setHoveredCountry}
               lang={lang}
+              resetKey={resetKey}
+              isMobile={isMobile}
             />
           ))}
           <CarbonFlowLinks hoveredCountry={hoveredCountry} />
@@ -610,13 +638,25 @@ function Scene({ lang }: { lang: "ja" | "en" }) {
 
 export default function Page() {
   const [lang, setLang] = useState<"ja" | "en">("ja");
+  const [resetKey, setResetKey] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   return (
     <div style={{ width: "100vw", height: "100vh", background: "#060302" }}>
-      <Canvas camera={{ position: [0, 60, 120], fov: 55, near: 1, far: 2000 }}>
-        <Scene lang={lang} />
+      <Canvas
+        camera={{ position: [0, 60, 120], fov: 55, near: 1, far: 2000 }}
+        onPointerMissed={() => setResetKey((k) => k + 1)}
+      >
+        <Scene lang={lang} resetKey={resetKey} isMobile={isMobile} />
       </Canvas>
-      <InfoPanel lang={lang} onLangChange={setLang} />
+      <InfoPanel lang={lang} onLangChange={setLang} defaultOpen={!isMobile} />
     </div>
   );
 }
